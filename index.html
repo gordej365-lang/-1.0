@@ -1,334 +1,213 @@
-
-<!DOCTYPE html>
-<html lang="ru">
+<!DOCTYPE html><html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ЭЛЕКТРИЧЕК — расписание электричек</title>
-  <meta name="theme-color" content="#101827">
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: #101827;
-      color: #f4f7fb;
-      font-family: Arial, sans-serif;
-    }
-    header {
-      padding: 22px 18px;
-      border-bottom: 1px solid #293548;
-    }
-    .logo { font-size: 25px; font-weight: 900; letter-spacing: 1px; }
-    .logo span { color: #70e1b0; }
-    .subtitle { color: #aab7c9; margin-top: 7px; font-size: 14px; }
-    main { max-width: 720px; margin: 25px auto; padding: 0 15px; }
-    h1 { font-size: 27px; margin-bottom: 8px; }
-    .intro { color: #aab7c9; line-height: 1.5; margin-bottom: 22px; }
-    .panel {
-      background: #1a2638;
-      border: 1px solid #2c3a50;
-      border-radius: 17px;
-      padding: 18px;
-    }
-    label { display: block; margin: 13px 0 8px; font-size: 14px; }
-    input {
-      width: 100%;
-      padding: 14px;
-      border: 1px solid #3a4b62;
-      border-radius: 10px;
-      background: #111c2c;
-      color: white;
-      font-size: 16px;
-      outline: none;
-    }
-    input:focus { border-color: #70e1b0; }
-    .field { position: relative; }
-    .suggestions {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      z-index: 5;
-      background: #243248;
-      border: 1px solid #40516a;
-      border-radius: 10px;
-      max-height: 220px;
-      overflow-y: auto;
-    }
-    .suggestion {
-      padding: 12px;
-      border-bottom: 1px solid #394960;
-      cursor: pointer;
-    }
-    .suggestion:last-child { border-bottom: 0; }
-    .suggestion:active { background: #354761; }
-    .station-region { display: block; color: #aab7c9; font-size: 12px; margin-top: 4px; }
-    button {
-      width: 100%;
-      padding: 15px;
-      margin-top: 20px;
-      border: 0;
-      border-radius: 10px;
-      background: #70e1b0;
-      color: #10251e;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:disabled { opacity: .6; }
-    #message { color: #c1cede; margin-top: 18px; line-height: 1.5; }
-    .trip {
-      margin-top: 12px;
-      padding: 16px;
-      background: #1a2638;
-      border: 1px solid #2c3a50;
-      border-radius: 13px;
-    }
-    .trip-title { font-weight: bold; margin-bottom: 12px; }
-    .times { display: flex; justify-content: space-between; gap: 12px; }
-    .time { font-size: 22px; font-weight: bold; }
-    .place { color: #aab7c9; font-size: 13px; margin-top: 5px; }
-    .duration { color: #70e1b0; margin-top: 12px; font-size: 14px; }
-    footer { text-align: center; color: #8291a6; padding: 30px 12px; font-size: 12px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ЭЛЕКТРИЧЕК — Расписание электричек</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f2f5f9;
+  color: #172033;
+}
+header {
+  background: #1769d2;
+  color: white;
+  padding: 22px 16px;
+}
+header h1 { margin: 0 0 8px; font-size: 27px; }
+header p { margin: 0; }
+main { max-width: 760px; margin: auto; padding: 18px; }
+.panel {
+  background: white;
+  padding: 18px;
+  border-radius: 14px;
+  margin-bottom: 16px;
+}
+h2 { margin-top: 0; font-size: 20px; }
+label { display: block; margin: 14px 0 6px; font-weight: bold; }
+input, button {
+  width: 100%;
+  padding: 13px;
+  border-radius: 9px;
+  font-size: 16px;
+}
+input { border: 1px solid #cbd3df; }
+button {
+  border: 0;
+  background: #1769d2;
+  color: white;
+  font-weight: bold;
+  margin-top: 12px;
+}
+button:disabled { opacity: .6; }
+#status { margin-top: 12px; color: #596579; }
+.result {
+  border-top: 1px solid #e2e7ef;
+  padding: 13px 0;
+}
+.time { font-size: 20px; font-weight: bold; }
+.muted { color: #657187; font-size: 14px; margin-top: 5px; }
+</style>
 </head>
 <body>
-  <header>
-    <div class="logo">ЭЛЕКТРИ<span>ЧЕК</span></div>
-    <div class="subtitle">Электрички Москвы и МЦД</div>
-  </header>
+<header>
+  <h1>🚆 ЭЛЕКТРИЧЕК</h1>
+  <p>Расписание пригородных поездов Москвы и МЦД</p>
+</header><main>
+  <section class="panel">
+    <h2>Найти электричку</h2>
+    <label for="from">Откуда</label>
+    <input id="from" list="stations" placeholder="Например, Подольск">
+    <label for="to">Куда</label>
+    <input id="to" list="stations" placeholder="Например, Курский вокзал">
+    <datalist id="stations"></datalist>
+    <label for="date">Дата поездки</label>
+    <input id="date" type="date">
+    <button id="search">Найти поезда</button>
+    <div id="status">Подключение к серверу…</div>
+  </section>  <section class="panel">
+    <h2>Результаты</h2>
+    <div id="results">Укажи станции отправления и прибытия.</div>
+  </section>
+</main><script>
+const API = "https://electrichesk-moscow.onrender.com/api";
+const fromInput = document.getElementById("from");
+const toInput = document.getElementById("to");
+const stationList = document.getElementById("stations");
+const statusBox = document.getElementById("status");
+const results = document.getElementById("results");
+const searchButton = document.getElementById("search");
 
-  <main>
-    <h1>Расписание поездов</h1>
-    <div class="intro">Найди станцию, выбери направление и посмотри доступные рейсы.</div>
+document.getElementById("date").value =
+  new Date().toLocaleDateString("en-CA");
 
-    <section class="panel">
-      <label for="from">Откуда</label>
-      <div class="field">
-        <input id="from" placeholder="Начни вводить станцию..." autocomplete="off">
-        <div id="from-list" class="suggestions" hidden></div>
-      </div>
+let stations = [];
 
-      <label for="to">Куда</label>
-      <div class="field">
-        <input id="to" placeholder="Начни вводить станцию..." autocomplete="off">
-        <div id="to-list" class="suggestions" hidden></div>
-      </div>
+async function loadStations() {
+  try {
+    statusBox.textContent = "Загружаем список станций…";
+    const response = await fetch(API + "/stations");
+    if (!response.ok) throw new Error("Ошибка сервера: " + response.status);
+    const data = await response.json();
+    stations = Array.isArray(data) ? data : (data.stations || []);
+    stationList.replaceChildren();
 
-      <label for="date">Дата поездки</label>
-      <input id="date" type="date">
-
-      <button id="search">Найти электрички</button>
-      <div id="message" role="status">Введи минимум две буквы и выбери станцию из списка.</div>
-    </section>
-
-    <section id="results" aria-live="polite"></section>
-  </main>
-
-  <footer>ЭЛЕКТРИЧЕК · Расписание предоставляется сервисом Яндекс Расписания</footer>
-
-  <script>
-    const $ = id => document.getElementById(id);
-    const selected = { from: null, to: null };
-    let searchNumber = 0;
-
-    $("date").value = new Date().toLocaleDateString("en-CA");
-
-    function setupStation(inputId, listId, key) {
-      const input = $(inputId);
-      const list = $(listId);
-      let timer;
-
-      input.addEventListener("input", () => {
-        selected[key] = null;
-        clearTimeout(timer);
-        const query = input.value.trim();
-        list.replaceChildren();
-        list.hidden = true;
-
-        if (query.length < 2) return;
-
-        timer = setTimeout(async () => {
-          try {
-            const response = await fetch(
-              "/api/stations?q=" + encodeURIComponent(query)
-            );
-            const data = await response.json();
-
-            if (!response.ok) throw new Error(data.error || "Ошибка поиска");
-
-            list.replaceChildren();
-
-            if (!data.stations || data.stations.length === 0) {
-              const empty = document.createElement("div");
-              empty.className = "suggestion";
-              empty.textContent = "Станции не найдены";
-              list.append(empty);
-              list.hidden = false;
-              return;
-            }
-
-            data.stations.forEach(station => {
-              const item = document.createElement("div");
-              item.className = "suggestion";
-
-              const name = document.createElement("div");
-              name.textContent = station.name;
-
-              const region = document.createElement("span");
-              region.className = "station-region";
-              region.textContent = [station.region, station.direction]
-                .filter(Boolean).join(" · ");
-
-              item.append(name, region);
-              item.addEventListener("click", () => {
-                input.value = station.name;
-                selected[key] = station;
-                list.hidden = true;
-              });
-              list.append(item);
-            });
-
-            list.hidden = false;
-          } catch (error) {
-            list.replaceChildren();
-            const item = document.createElement("div");
-            item.className = "suggestion";
-            item.textContent = error.message || "Не удалось найти станции";
-            list.append(item);
-            list.hidden = false;
-          }
-        }, 350);
-      });
-
-      input.addEventListener("blur", () => {
-        setTimeout(() => { list.hidden = true; }, 180);
-      });
-
-      input.addEventListener("focus", () => {
-        if (input.value.trim().length >= 2 && list.childElementCount) {
-          list.hidden = false;
-        }
-      });
-    }
-
-    setupStation("from", "from-list", "from");
-    setupStation("to", "to-list", "to");
-
-    function formatTime(value) {
-      if (!value) return "—";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return String(value);
-      return date.toLocaleTimeString("ru-RU", {
-        hour: "2-digit", minute: "2-digit"
-      });
-    }
-
-    function addText(parent, className, text) {
-      const el = document.createElement("div");
-      el.className = className;
-      el.textContent = text || "";
-      parent.append(el);
-      return el;
-    }
-
-    $("search").addEventListener("click", async () => {
-      const from = selected.from;
-      const to = selected.to;
-      const date = $("date").value;
-      const button = $("search");
-      const results = $("results");
-      const message = $("message");
-      const current = ++searchNumber;
-
-      results.replaceChildren();
-
-      if (!from || !to) {
-        message.textContent = "Выбери обе станции из выпадающего списка.";
-        return;
-      }
-
-      if (!date) {
-        message.textContent = "Выбери дату поездки.";
-        return;
-      }
-
-      button.disabled = true;
-      message.textContent = "Загружаем расписание...";
-
-      try {
-        const params = new URLSearchParams({
-          from: from.code,
-          to: to.code,
-          date
-        });
-
-        const response = await fetch("/api/search?" + params);
-        const data = await response.json();
-
-        if (current !== searchNumber) return;
-        if (!response.ok) {
-          throw new Error(data.error || "Ошибка загрузки расписания (HTTP " + response.status + ")");
-        }
-
-        const segments = data.segments || [];
-
-        if (!segments.length) {
-          message.textContent = "Рейсы не найдены на выбранную дату. Попробуй другую дату или направление.";
-          return;
-        }
-
-        message.textContent = "Найдено рейсов: " + segments.length;
-
-        segments.forEach(segment => {
-          const card = document.createElement("article");
-          card.className = "trip";
-
-          addText(card, "trip-title",
-            segment.thread?.title || segment.thread?.short_title || "Электричка");
-
-          const times = document.createElement("div");
-          times.className = "times";
-
-          const left = document.createElement("div");
-          addText(left, "time", formatTime(segment.departure));
-          addText(left, "place", from.name);
-
-          const right = document.createElement("div");
-          right.style.textAlign = "right";
-          addText(right, "time", formatTime(segment.arrival));
-          addText(right, "place", to.name);
-
-          times.append(left, right);
-          card.append(times);
-
-          if (segment.duration) {
-            const minutes = Math.round(segment.duration / 60);
-            addText(card, "duration",
-              "В пути: " + Math.floor(minutes / 60) + " ч " + (minutes % 60) + " мин");
-          }
-
-          results.append(card);
-        });
-      } catch (error) {
-        if (current === searchNumber) {
-          message.textContent = error.message || "Не удалось загрузить расписание.";
-        }
-      } finally {
-        if (current === searchNumber) button.disabled = false;
-      }
+    stations.forEach(station => {
+      const option = document.createElement("option");
+      option.value = station.title || station.name || "";
+      if (option.value) stationList.appendChild(option);
     });
-  </script>
-</body>
+
+    statusBox.textContent = "Список станций загружен: " + stations.length;
+  } catch (error) {
+    statusBox.textContent =
+      "Не удалось загрузить станции. Проверь подключение сервера.";
+  }
+}
+
+searchButton.addEventListener("click", async () => {
+  const fromText = fromInput.value.trim();
+  const toText = toInput.value.trim();
+  const date = document.getElementById("date").value;
+
+  if (!fromText || !toText) {
+    statusBox.textContent = "Укажи обе станции.";
+    return;
+  }
+
+  const fromStation = stations.find(s =>
+    (s.title || s.name || "").toLowerCase() === fromText.toLowerCase()
+  );
+  const toStation = stations.find(s =>
+    (s.title || s.name || "").toLowerCase() === toText.toLowerCase()
+  );
+
+  if (!fromStation || !toStation) {
+    statusBox.textContent =
+      "Выбери станции из подсказок или проверь их названия.";
+    return;
+  }
+
+  const fromCode = fromStation.codes?.yandex_code || fromStation.code;
+  const toCode = toStation.codes?.yandex_code || toStation.code;
+
+  if (!fromCode || !toCode) {
+    statusBox.textContent = "Для станции не найден код.";
+    return;
+  }
+
+  searchButton.disabled = true;
+  results.textContent = "Ищем расписание…";
+  statusBox.textContent = "Запрашиваем расписание…";
+
+  try {
+    const params = new URLSearchParams({
+      from: fromCode,
+      to: toCode,
+      date: date,
+      lang: "ru_RU"
+    });
+    const response = await fetch(API + "/search?" + params.toString());
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || "Ошибка запроса");
+    }
+
+    const segments = data.segments || [];
+    results.replaceChildren();
+
+    if (!segments.length) {
+      results.textContent =
+        "Поезда не найдены. Проверь станции и дату поездки.";
+    } else {
+      segments.forEach(segment => {
+        const item = document.createElement("div");
+        item.className = "result";
+
+        const departure = segment.departure
+          ? new Date(segment.departure).toLocaleTimeString("ru-RU", {
+              hour: "2-digit", minute: "2-digit"
+            })
+          : "—";
+        const arrival = segment.arrival
+          ? new Date(segment.arrival).toLocaleTimeString("ru-RU", {
+              hour: "2-digit", minute: "2-digit"
+            })
+          : "—";
+
+        const title = document.createElement("div");
+        title.className = "time";
+        title.textContent = departure + " → " + arrival;
+
+        const name = document.createElement("div");
+        name.textContent = segment.thread?.title ||
+          segment.thread?.short_title || "Пригородный поезд";
+
+        const detail = document.createElement("div");
+        detail.className = "muted";
+        detail.textContent =
+          (segment.duration ? "В пути: " +
+          Math.round(segment.duration / 60) + " мин." : "");
+
+        item.append(title, name, detail);
+        results.appendChild(item);
+      });
+    }
+
+    statusBox.textContent = "Поиск завершён.";
+  } catch (error) {
+    results.textContent = "Не удалось получить расписание.";
+    statusBox.textContent =
+      "Ошибка подключения или ответа API. " + error.message;
+  } finally {
+    searchButton.disabled = false;
+  }
+});
+
+loadStations();
+</script><
+/body>
 </html>
-ское","Москва"],["Солнечная","Киевское","Москва"],["Апрелевка","Киевское","Апрелевка"],["Наро-Фоминская","Киевское","Наро-Фоминск"],["Москва Курская (Горьковское направление)","Горьковское","Москва"],["Железнодорожная","Горьковское","Балашиха"],["Балашиха","Горьковское","Балашиха"],["Электросталь","Горьковское","Электросталь"],["Москва Савёловская","Савёловское","Москва"],["Лобня","Савёловское","Лобня"],["Дмитров","Савёловское","Дмитров"],["Долгопрудная","Савёловское","Долгопрудный"]
-].map((x,i)=>({id:i+1,name:x[0],line:x[1],area:x[2]}));
-const $=id=>document.getElementById(id);let activeLine="Все";
-function render(){const list=stations.filter(s=>(activeLine==="Все"||s.line===activeLine));$("count").textContent=list.length+" станций";$("stations").innerHTML=list.length?list.map(s=>`<article class="station"><div class="station-mark">🚉</div><div><h3>${s.name}</h3><p>${s.area} · ${s.line} направление</p><span class="tag">В каталоге</span></div></article>`).join(""):'<div class="empty">Станций по этому фильтру пока нет.</div>'}
-function suggest(input,listId){const box=$(listId),q=input.value.trim().toLocaleLowerCase("ru");if(!q){box.hidden=true;return}const hits=stations.filter(s=>s.name.toLocaleLowerCase("ru").includes(q)||s.area.toLocaleLowerCase("ru").includes(q)).slice(0,7);box.innerHTML=hits.map(s=>`<button type="button" data-name="${s.name.replace(/"/g,'&quot;')}">${s.name}<small>${s.line} направление · ${s.area}</small></button>`).join("");box.hidden=!hits.length;box.querySelectorAll("button").forEach(b=>b.onclick=()=>{input.value=b.dataset.name;box.hidden=true})}
-$("from").addEventListener("input",()=>suggest($("from"),"from-list"));$("to").addEventListener("input",()=>suggest($("to"),"to-list"));
-document.addEventListener("click",e=>{if(!e.target.closest(".inputwrap"))document.querySelectorAll(".suggestions").forEach(x=>x.hidden=true)});
-$("filters").querySelectorAll("button").forEach(b=>b.onclick=()=>{activeLine=b.dataset.line;$("filters").querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));render()});
-$("searchBtn").onclick=()=>{const a=stations.find(s=>s.name.toLowerCase()===$("from").value.trim().toLowerCase()),b=stations.find(s=>s.name.toLowerCase()===$("to").value.trim().toLowerCase());const r=$("searchResult");if(!a||!b){r.innerHTML='<div class="notice">Выбери обе станции из подсказок, чтобы продолжить.</div>';return}if(a.name===b.name){r.innerHTML='<div class="notice">Выбери две разные станции.</div>';return}r.innerHTML=`<div class="notice"><b>Маршрут выбран:</b> ${a.name} → ${b.name}. Время отправления пока недоступно: источник актуального расписания ещё не подключён.</div>`};
-render();
-</script></body></html>
