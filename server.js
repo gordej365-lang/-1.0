@@ -7,7 +7,17 @@ const PORT = Number(process.env.PORT || 3000);
 const API_KEY = (process.env.YANDEX_RASP_API_KEY || "").trim();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-app.use(express.static(__dirname));
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "https://gordej365-lang.github.io");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 app.get("/api/health", (_req, res) => {
   res.json({
