@@ -1,217 +1,200 @@
-import express from "express";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+const express = require("express");
+const path = require("path");
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
-const API_KEY = (process.env.YANDEX_RASP_API_KEY || "").trim();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.YANDEX_RASP_API_KEY;
+const API_BASE = "https://api.rasp.yandex-net.ru/v3.0";
+
+app.use(express.static(__dirname));
 
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://gordej365-lang.github.io");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+res.setHeader(
+"Access-Control-Allow-Origin",
+"https://gordej365-lang.github.io"
+);
+res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
-
-app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    service: "electrichesk-moscow",
-    apiKeyConfigured: Boolean(API_KEY)
-  });
-});
-
-async function yandexRequest(endpoint, params) {
-  const url = new URL(`https://api.rasp.yandex.net/v3.0/${endpoint}/`);
-  url.search = new URLSearchParams({
-    apikey: API_KEY,
-    format: "json",
-    lang: "ru_RU",
-    ...params
-  }).toString();
-
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" }
-  });
-
-  const body = await response.text();
-  console.log(`Yandex ${endpoint}: HTTP ${response.status}`);
-
-  if (!response.ok) {
-    console.error(`Yandex error body: ${body.slice(0, 300)}`);
-  }
-
-  return { response, body };
+if (req.method === "OPTIONS") {
+return res.sendStatus(204);
 }
 
-app.get("/api/search", async (req, res) => {
-  console.log("SEARCH REQUEST received");
-
-  const { from, to, date } = req.query;
-
-  if (!API_KEY) {
-    return res.status(503).json({
-      error: "API-ключ не настроен в Render."
-    });
-  }
-
-  if (
-    typeof from !== "string" ||
-    typeof to !== "string" ||
-    !from.trim() ||
-    !to.trim()
-  ) {
-    return res.status(400).json({
-      error: "Укажи станции отправления и прибытия."
-    });
-  }
-
-  if (
-    typeof date !== "string" ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(date)
-  ) {
-    return res.status(400).json({
-      error: "Неверный формат даты."
-    });
-  }
-
-  try {
-    const { response, body } = await yandexRequest("search", {
-      from: from.trim(),
-      to: to.trim(),
-      date,
-      transport_types: "suburban",
-      limit: "100"
-    });
-
-    res.status(response.status);
-    res.set(
-      "Content-Type",
-      response.headers.get("content-type") ||
-        "application/json; charset=utf-8"
-    );
-
-    return res.send(body);
-  } catch (error) {
-    console.error("SEARCH CONNECTION ERROR:", error.message);
-
-    return res.status(502).json({
-      error: "Не удалось связаться с API расписаний."
-    });
-  }
+next();
 });
 
-let stationsCache = [];
-let stationsCacheTime = 0;
-let stationsLoading = null;
+let stationCache = [];
+let stationCacheTime = 0;
+let stationLoadPromise = null;
+
+app.get("/api/health", (req, res) => {
+res.json({
+ok: true,
+service: "electrichesk-moscow",
+apiKeyConfigured: Boolean(API_KEY)
+});
+});
+
+async function yandexRequest(endpoint, params = {}) {
+if (!API_KEY) {
+throw new Error("На сервере не настроен API-ключ Яндекса");
+}
+
+const url = new URL("${API_BASE}/${endpoint}/");
+url.searchParams.set("apikey", API_KEY);
+url.searchParams.set("format", "json");
+url.searchParams.set("lang", "ru_RU");
+
+for (const [key, value] of Object.entries(params)) {
+if (value !== undefined && value !== null && value !== "") {
+url.searchParams.set(key, String(value));
+}
+}
+
+const response = await fetch(url);
+
+if (!response.ok) {
+throw new Error("Яндекс API: HTTP ${response.status}");
+}
+
+return response.json();
+}
+
+function collectStations(data) {
+const result = [];
+const seen = new Set();
+
+function walk(value) {
+if (!value) return;
+
+if (Array.isArray(value)) {
+  value.forEach(walk);
+  return;
+}
+
+if (typeof value !== "object") return;
+
+if (
+  value.title &&
+  value.codes &&
+  value.codes.yandex_code &&
+  value.transport_type === "suburban"
+) {
+  const code = value.codes.yandex_code;
+
+  if (!seen.has(code)) {
+    seen.add(code);
+    result.push({
+      title: value.title,
+      code,
+      codes: value.codes,
+      transport_type: value.transport_type,
+      station_type: value.station_type || ""
+    });
+  }
+}
+
+for (const [key, child] of Object.entries(value)) {
+  if (key !== "codes") walk(child);
+}
+
+}
+
+walk(data);
+return result;
+}
 
 async function getStations() {
-  if (stationsCacheTime && Date.now() - stationsCacheTime < 86400000) {
-    return stationsCache;
+const cacheValid =
+stationCache.length > 0 &&
+Date.now() - stationCacheTime < 24 * 60 * 60 * 1000;
+
+if (cacheValid) return stationCache;
+if (stationLoadPromise) return stationLoadPromise;
+
+stationLoadPromise = (async () => {
+try {
+const data = await yandexRequest("stations_list");
+const stations = collectStations(data);
+
+  if (!stations.length) {
+    throw new Error("Яндекс API не вернул станции электричек");
   }
 
-  if (stationsLoading) return stationsLoading;
+  stationCache = stations;
+  stationCacheTime = Date.now();
 
-  stationsLoading = (async () => {
-    const { response, body } = await yandexRequest("stations_list", {});
+  console.log("Stations loaded:", stations.length);
+  return stationCache;
+} finally {
+  stationLoadPromise = null;
+}
 
-    if (!response.ok) {
-      throw new Error(`Yandex stations HTTP ${response.status}`);
-    }
+})();
 
-    const data = JSON.parse(body);
-    const found = new Map();
-
-    function walk(node, region = "") {
-      if (!node || typeof node !== "object") return;
-
-      const currentRegion = node.title || region;
-
-      if (
-        node.codes?.yandex_code &&
-        node.title &&
-        (!node.transport_type || node.transport_type === "suburban")
-      ) {
-        const code = node.codes.yandex_code;
-
-        found.set(code, {
-          name: node.title,
-          code,
-          region: currentRegion,
-          direction: node.direction || ""
-        });
-      }
-
-      for (const [key, value] of Object.entries(node)) {
-        if (key === "codes" || key === "title") continue;
-
-        if (Array.isArray(value)) {
-          for (const item of value) walk(item, currentRegion);
-        } else if (value && typeof value === "object") {
-          walk(value, currentRegion);
-        }
-      }
-    }
-
-    walk(data);
-
-    stationsCache = [...found.values()];
-    stationsCacheTime = Date.now();
-
-    console.log("Stations loaded:", stationsCache.length);
-    return stationsCache;
-  })();
-
-  try {
-    return await stationsLoading;
-  } finally {
-    stationsLoading = null;
-  }
+return stationLoadPromise;
 }
 
 app.get("/api/stations", async (req, res) => {
-  const q = typeof req.query.q === "string"
-    ? req.query.q.trim().toLocaleLowerCase("ru")
-    : "";
+try {
+const query = String(req.query.q || "")
+.trim()
+.toLocaleLowerCase("ru");
 
-  if (q.length < 2) {
-    return res.json({ stations: [] });
-  }
+const stations = await getStations();
 
-  if (!API_KEY) {
-    return res.status(503).json({
-      error: "API-ключ не настроен в Render."
-    });
-  }
+const filtered = query
+  ? stations.filter(station =>
+      station.title.toLocaleLowerCase("ru").includes(query)
+    )
+  : stations;
 
-  try {
-    const allStations = await getStations();
+res.json({
+  stations: filtered,
+  total: filtered.length
+});
 
-    const stations = allStations
-      .filter(station =>
-        `${station.name} ${station.region} ${station.direction}`
-          .toLocaleLowerCase("ru")
-          .includes(q)
-      )
-      .sort((a, b) => a.name.localeCompare(b.name, "ru"))
-      .slice(0, 50);
+} catch (error) {
+console.error("Stations error:", error.message);
+res.status(502).json({
+error: "Не удалось загрузить станции",
+details: error.message
+});
+}
+});
 
-    return res.json({ stations });
-  } catch (error) {
-    console.error("STATIONS ERROR:", error.message);
+app.get("/api/search", async (req, res) => {
+try {
+const { from, to, date } = req.query;
 
-    return res.status(502).json({
-      error: "Не удалось загрузить список станций."
-    });
-  }
+if (!from || !to) {
+  return res.status(400).json({
+    error: "Укажи станции отправления и прибытия"
+  });
+}
+
+const params = {
+  from,
+  to,
+  transport_types: "suburban",
+  transfers: false,
+  limit: 100
+};
+
+if (date) params.date = date;
+
+const data = await yandexRequest("search", params);
+res.json(data);
+
+} catch (error) {
+console.error("Search error:", error.message);
+res.status(502).json({
+error: "Не удалось получить расписание",
+details: error.message
+});
+}
 });
 
 app.listen(PORT, () => {
-  console.log(`ЭЛЕКТРИЧЕК запущен на порту ${PORT}`);
+console.log("Server listening on port ${PORT}");
 });
