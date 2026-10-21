@@ -181,7 +181,7 @@ app.get("/api/search", async (req, res) => {
   }
 
   const url = new URL(
-    "https://api.rasp.yandex-net.ru/v3.0/search/"
+    "https://https://api.rasp.yandex.ru/v3.0/search/"
   );
 
   url.search = new URLSearchParams({
