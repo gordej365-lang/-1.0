@@ -201,7 +201,7 @@ app.get("/api/search", async (req, res) => {
     });
 
     const body = await response.text();
-
+console.log("Yandex API:", response.status, body.slice(0, 500));
     res.status(response.status);
     res.set(
       "Content-Type",
