@@ -1,5 +1,4 @@
-const express = require("express");
-
+import express from "express";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.YANDEX_RASP_API_KEY;
