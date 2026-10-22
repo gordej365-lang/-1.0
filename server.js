@@ -1,4 +1,5 @@
 import express from "express";
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.YANDEX_RASP_API_KEY;
@@ -19,7 +20,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(__dirname));
+app.use(express.static(process.cwd()));
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -31,7 +32,7 @@ app.get("/api/health", (req, res) => {
 
 async function yandexRequest(endpoint, params = {}) {
   if (!API_KEY) {
-    throw new Error("YANDEX_RASP_API_KEY is not configured on Render");
+    throw new Error("YANDEX_RASP_API_KEY не настроен в Render");
   }
 
   const url = new URL(`${API_BASE}/${endpoint}/`);
@@ -58,33 +59,36 @@ async function yandexRequest(endpoint, params = {}) {
 }
 
 function collectStations(data) {
-  const found = [];
+  const stations = [];
   const seen = new Set();
 
   function walk(value) {
     if (!value) return;
 
     if (Array.isArray(value)) {
-      for (const item of value) walk(item);
+      value.forEach(walk);
       return;
     }
 
     if (typeof value !== "object") return;
 
-    const code = value.codes && value.codes.yandex_code;
+    const code = value.codes?.yandex_code;
 
-    if (value.title && code && value.transport_type === "suburban") {
-      if (!seen.has(code)) {
-        seen.add(code);
-        found.push({
-          title: value.title,
-          name: value.title,
-          code,
-          codes: value.codes,
-          transport_type: value.transport_type,
-          station_type: value.station_type || ""
-        });
-      }
+    if (
+      value.title &&
+      code &&
+      value.transport_type === "suburban" &&
+      !seen.has(code)
+    ) {
+      seen.add(code);
+      stations.push({
+        title: value.title,
+        name: value.title,
+        code,
+        codes: value.codes,
+        transport_type: value.transport_type,
+        station_type: value.station_type || ""
+      });
     }
 
     for (const [key, child] of Object.entries(value)) {
@@ -93,10 +97,102 @@ function collectStations(data) {
   }
 
   walk(data);
-  return found;
+  return stations;
 }
 
 let cachedStations = [];
 let cacheUpdatedAt = 0;
 let loadingStations = null;
-const CACHE_MS = 24 * 60
+
+async function getStations() {
+  if (
+    cachedStations.length &&
+    Date.now() - cacheUpdatedAt < 86400000
+  ) {
+    return cachedStations;
+  }
+
+  if (loadingStations) return loadingStations;
+
+  loadingStations = (async () => {
+    try {
+      const data = await yandexRequest("stations_list");
+      const stations = collectStations(data);
+
+      if (!stations.length) {
+        throw new Error("Список электричек пуст или имеет другой формат");
+      }
+
+      cachedStations = stations;
+      cacheUpdatedAt = Date.now();
+      console.log("Stations loaded:", stations.length);
+
+      return stations;
+    } finally {
+      loadingStations = null;
+    }
+  })();
+
+  return loadingStations;
+}
+
+app.get("/api/stations", async (req, res) => {
+  try {
+    const query = String(req.query.q || "")
+      .trim()
+      .toLocaleLowerCase("ru");
+
+    const allStations = await getStations();
+
+    const filtered = query
+      ? allStations.filter(station =>
+          station.title.toLocaleLowerCase("ru").includes(query)
+        )
+      : allStations;
+
+    res.json({
+      stations: filtered,
+      total: filtered.length
+    });
+  } catch (error) {
+    console.error("Stations error:", error.message);
+    res.status(502).json({
+      error: "Не удалось загрузить станции",
+      details: error.message
+    });
+  }
+});
+
+app.get("/api/search", async (req, res) => {
+  try {
+    const { from, to, date } = req.query;
+
+    if (!from || !to) {
+      return res.status(400).json({
+        error: "Укажи станции отправления и прибытия"
+      });
+    }
+
+    const params = {
+      from,
+      to,
+      transport_types: "suburban",
+      transfers: false,
+      limit: 100
+    };
+
+    if (date) params.date = date;
+
+    res.json(await yandexRequest("search", params));
+  } catch (error) {
+    console.error("Search error:", error.message);
+    res.status(502).json({
+      error: "Не удалось получить расписание",
+      details: error.message
+    });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
